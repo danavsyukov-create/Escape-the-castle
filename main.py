@@ -2,7 +2,6 @@ import arcade
 from arcade.camera import Camera2D
 from effects import EffectsManager
 from player import PlayerAnimation
-import random
 import os
 
 SCREEN_W = 1280
@@ -20,6 +19,7 @@ MAX_JUMPS = 1
 
 CAMERA_LERP = 0.12
 WORLD_COLOR = arcade.color.SKY_BLUE
+
 
 class Level:
     def __init__(self):
@@ -42,31 +42,28 @@ class Level:
         self.doors.draw()
         self.hazards.draw()
 
+
 class Level1(Level):
     def setup(self):
         self.spawn_point = (128, 256)
-        # Стены
         for x in range(0, 575, 64):
             wall = arcade.Sprite("images/wall.png", scale=0.1)
             wall.center_x = x
             wall.center_y = 400
             self.walls.append(wall)
 
-        # Пол
         for x in range(0, 5000, 64):
             floor_tile = arcade.Sprite("images/wall.png", scale=0.1)
             floor_tile.center_x = x
             floor_tile.center_y = 64
             self.walls.append(floor_tile)
 
-        # Лестницы
         for y in range(65, 64 + 64 * 4, 64):
             ladder = arcade.Sprite("images/tiles/ladderMid.png", scale=0.5)
             ladder.center_x = 600
             ladder.center_y = y
             self.ladders.append(ladder)
 
-        # Ключи и дверь
         key = arcade.Sprite("images/key.png", scale=1)
         key.center_x = 250
         key.center_y = 200
@@ -77,11 +74,10 @@ class Level1(Level):
         door.center_y = 490
         self.doors.append(door)
 
+
 class Level2(Level):
     def setup(self):
         self.spawn_point = (100, 250)
-        # Уровень 2 пока пустой, добавьте свою собственную реализацию!
-        # Это пример простого уровня с одним препятствием
         for x in range(0, 5000, 64):
             floor_tile = arcade.Sprite("images/wall.png", scale=0.1)
             floor_tile.center_x = x
@@ -92,6 +88,7 @@ class Level2(Level):
         door.center_x = 500
         door.center_y = 400
         self.doors.append(door)
+
 
 class Platformer(arcade.Window):
     def __init__(self):
@@ -115,8 +112,8 @@ class Platformer(arcade.Window):
         self.current_level = None
         self.levels = []
         self.setup_levels()
-        self.switch_to_level(0)  # Сперва выбираем уровень
-        self.setup()              # Потом выполняем настройку сцены
+        self.switch_to_level(0)
+        self.setup()
 
     def setup_levels(self):
         self.levels = [Level1(), Level2()]
@@ -126,7 +123,7 @@ class Platformer(arcade.Window):
     def switch_to_level(self, index):
         if 0 <= index < len(self.levels):
             self.current_level = self.levels[index]
-            self.setup()  # Всегда заново настраиваем сцену после выбора уровня
+            self.setup()
 
     def setup(self):
         self.player_list.clear()
@@ -141,7 +138,7 @@ class Platformer(arcade.Window):
         )
 
     def on_draw(self):
-        self.clear()
+        self.clear(WORLD_COLOR)
         self.world_camera.use()
         self.current_level.draw()
         self.player_list.draw()
@@ -217,20 +214,6 @@ class Platformer(arcade.Window):
 
         grounded = self.engine.can_jump(y_distance=6)
 
-        current_sprite = self.player_animation.update(
-            delta_time,
-            is_moving_horizontally,
-            not grounded,
-            self.is_facing_right,
-            grounded,
-            on_ladder,
-            is_moving_on_ladder
-        )
-
-        # Устанавливаем текстуру для игрока
-        if current_sprite:
-            self.player.texture = current_sprite
-
         is_walking = (is_moving_horizontally and grounded and not on_ladder and not self.was_jumping)
         self.effects.set_walk_sound(is_walking)
 
@@ -264,31 +247,37 @@ class Platformer(arcade.Window):
 
         self.engine.update()
 
-        is_jumping = (self.player.change_y != 0 or not grounded) and not on_ladder
-        self.player_animation.update(delta_time, is_moving_horizontally, is_jumping,
-                                     self.is_facing_right, grounded, on_ladder, is_moving_on_ladder)
+        is_jumping = (self.player.change_y > 0 and not on_ladder)
+
+        self.player_animation.update(
+            delta_time,
+            is_moving_horizontally,
+            is_jumping,
+            self.is_facing_right,
+            grounded,
+            on_ladder,
+            is_moving_on_ladder
+        )
 
         current_sprite = self.player_animation.get_current_sprite()
         if current_sprite:
             self.player.texture = current_sprite
+            self.player.scale_x = 1 if self.is_facing_right else -1
 
         self.effects.update(delta_time, self.player, grounded)
 
-        # Сбор ключей
         keys_collected = arcade.check_for_collision_with_list(self.player, self.current_level.keys)
         for key in keys_collected:
             key.remove_from_sprite_lists()
 
-        # Проход через дверь
         doors_collided = arcade.check_for_collision_with_list(self.player, self.current_level.doors)
         for door in doors_collided:
-            if len(self.current_level.keys) == 0:  # Игрок собрал все ключи
+            if len(self.current_level.keys) == 0:
                 new_level_index = (self.levels.index(self.current_level) + 1) % len(self.levels)
                 self.switch_to_level(new_level_index)
                 self.setup()
                 break
 
-        # Перемещение камеры
         target = (self.player.center_x, self.player.center_y)
         cx, cy = self.world_camera.position
         smooth = (
@@ -304,10 +293,12 @@ class Platformer(arcade.Window):
         self.world_camera.position = (cam_x, cam_y)
         self.gui_camera.position = (SCREEN_W / 2, SCREEN_H / 2)
 
+
 def main():
     game = Platformer()
     game.setup()
     arcade.run()
+
 
 if __name__ == "__main__":
     main()
