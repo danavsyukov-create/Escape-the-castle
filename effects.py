@@ -3,7 +3,6 @@ import os
 import random
 import time
 
-
 class Particle:
     def __init__(self, x, y):
         self.x = x
@@ -13,60 +12,48 @@ class Particle:
         self.speed_y = random.uniform(0.5, 2.0)
         self.lifetime = random.uniform(0.4, 0.8)
         self.max_lifetime = self.lifetime
-        self.color = random.choice([
-            (210, 180, 140), 
-            (50, 50, 50) 
-        ])
-        self.alpha = 255
+        self.color = random.choice([(210, 180, 140, 255), (50, 50, 50, 255)])  # Четвертый элемент — альфа
 
     def update(self, dt):
         self.x += self.speed_x
         self.y += self.speed_y
         self.speed_y -= 0.1
         self.lifetime -= dt
-        self.alpha = int(255 * (self.lifetime / self.max_lifetime))
 
     def draw(self):
-        arcade.draw_circle_filled(
-            self.x, self.y, self.size,
-            (self.color[0], self.color[1], self.color[2], self.alpha)
-        )
+        arcade.draw_circle_filled(self.x, self.y, self.size, self.color)
 
 
 class EffectsManager:
     def __init__(self):
         self.particles = []
         self.trail_particles = []
-
         self.jump_sound = None
         self.walk_sound = None
         self.key_sound = None
         self.background_music = None
-
         self.screen_shake_timer = 0
         self.screen_shake_intensity = 0
-
         self.last_step_time = 0
         self.step_interval = 0.3
-        self.should_play_walk_sound = False 
-
+        self.should_play_walk_sound = False
         self.load_music()
         self.load_sounds()
 
     def load_music(self):
-        music_path = "music/music.mp3"
+        """Загружаем фоновый музыкальный трек."""
+        self.background_music = arcade.Sound(os.path.join("music", "music.mp3"))
+        self.background_music.play(loop=True, volume=0.3)
 
     def load_sounds(self):
-        jump_path = "music/jump.mp3"
-        walk_path = "music/walk.mp3"
-        key_path = "music/key_pickup.mp3"
+        """Загрузка звуков прыжка, ходьбы и подбора ключа."""
+        self.jump_sound = arcade.Sound(os.path.join("music", "jump.mp3"))
+        self.walk_sound = arcade.Sound(os.path.join("music", "walk.mp3"))
+        self.key_sound = arcade.Sound(os.path.join("music", "key.mp3"))
 
     def play_key_sound(self):
         if self.key_sound:
-            try:
-                self.key_sound.play(volume=0.5)
-            except:
-                pass
+            self.key_sound.play(volume=0.5)
 
     def set_walk_sound(self, should_play):
         self.should_play_walk_sound = should_play
@@ -92,11 +79,7 @@ class EffectsManager:
             particle.speed_y = random.uniform(-0.2, 0.2)
             particle.lifetime = random.uniform(0.2, 0.4)
             particle.max_lifetime = particle.lifetime
-            particle.color = random.choice([
-                arcade.color.GRAY,
-                arcade.color.BLACK,
-                arcade.color.BLACK_OLIVE
-            ])
+            particle.color = random.choice([(128, 128, 128, 255), (0, 0, 0, 255)])  # Чёткий RGBA
             self.trail_particles.append(particle)
 
         self.screen_shake_timer = 0.08
@@ -135,11 +118,7 @@ class EffectsManager:
                 particle.speed_y = random.uniform(-0.2, 0.2)
                 particle.lifetime = random.uniform(0.2, 0.4)
                 particle.max_lifetime = particle.lifetime
-                particle.color = random.choice([
-                arcade.color.GRAY,
-                arcade.color.BLACK,
-                arcade.color.BLACK_OLIVE
-                ])
+                particle.color = random.choice([(128, 128, 128, 255), (0, 0, 0, 255)])  # Чёткий RGBA
                 self.trail_particles.append(particle)
 
         if self.screen_shake_timer > 0:
