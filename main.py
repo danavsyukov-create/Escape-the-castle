@@ -1,0 +1,279 @@
+import sys
+import os
+import subprocess
+from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput
+from PyQt6.QtWidgets import (QApplication, QMainWindow, QPushButton, QVBoxLayout,
+                             QWidget, QLabel, QHBoxLayout, QDialog, QCheckBox,
+                             QSlider, QMessageBox)
+from PyQt6.QtGui import QIcon, QPalette, QColor, QPixmap
+from PyQt6.QtCore import Qt, QUrl
+
+
+class SettingsDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Settings")
+        self.setGeometry(200, 200, 300, 250)
+
+        layout = QVBoxLayout(self)
+
+        try:
+            self.settings_background_image = QPixmap("images/settings.png")
+        except Exception as e:
+            self.settings_background_image = QPixmap()
+
+        self.settings_background = QLabel(self)
+        self.settings_background.setPixmap(
+            self.settings_background_image.scaled(self.size(), Qt.AspectRatioMode.IgnoreAspectRatio,
+                                                  Qt.TransformationMode.SmoothTransformation))
+        self.settings_background.setGeometry(0, 0, self.width(), self.height())
+        self.settings_background.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        self.settings_content = QWidget(self)
+        content_layout = QVBoxLayout(self.settings_content)
+        self.settings_content.setStyleSheet("background: transparent;")
+
+        self.music_checkbox = QCheckBox("Background Music", self)
+        content_layout.addWidget(self.music_checkbox)
+
+        self.volume_slider = QSlider(Qt.Orientation.Horizontal, self)
+        self.volume_slider.setRange(0, 100)
+        self.volume_slider.setValue(50)
+        content_layout.addWidget(QLabel("Music Volume", self))
+        content_layout.addWidget(self.volume_slider)
+
+        self.sound_effects_checkbox = QCheckBox("Sound Effects", self)
+        content_layout.addWidget(self.sound_effects_checkbox)
+
+        self.ok_button = QPushButton("OK", self)
+        self.ok_button.clicked.connect(self.accept)
+        content_layout.addWidget(self.ok_button)
+
+        layout.addWidget(self.settings_background)
+        layout.addWidget(self.settings_content)
+        self.settings_content.raise_()
+        self.settings_background.lower()
+
+        self.setLayout(layout)
+
+    def resizeEvent(self, event):
+        self.settings_background.setPixmap(
+            self.settings_background_image.scaled(self.size(), Qt.AspectRatioMode.IgnoreAspectRatio,
+                                                  Qt.TransformationMode.SmoothTransformation))
+        self.settings_background.setGeometry(0, 0, self.width(), self.height())
+        super().resizeEvent(event)
+
+
+class MainWindow(QMainWindow):
+    def __init__(self):
+        super().__init__()
+
+        self.setWindowTitle("Escape from the Castle")
+        self.setGeometry(100, 100, 800, 600)
+
+        try:
+            self.background_image = QPixmap("assets/etc_background.png")
+            self.dark_background_image = QPixmap("assets/etc_dark_background.jpg")
+        except Exception as e:
+            self.background_image = QPixmap()
+            self.dark_background_image = QPixmap()
+
+        self.background = QLabel(self)
+        self.background.setPixmap(self.background_image.scaled(self.size(), Qt.AspectRatioMode.IgnoreAspectRatio,
+                                                               Qt.TransformationMode.SmoothTransformation))
+        self.background.setGeometry(0, 0, self.width(), self.height())
+
+        central_widget = QWidget()
+        self.setCentralWidget(central_widget)
+
+        main_layout = QVBoxLayout(central_widget)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+
+        top_layout = QHBoxLayout()
+        top_layout.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
+        top_layout.setContentsMargins(10, 10, 10, 10)
+
+        self.theme_button = QPushButton()
+        self.theme_button.setFixedSize(80, 80)
+        self.theme_button.clicked.connect(self.toggle_theme)
+        top_layout.addWidget(self.theme_button)
+        main_layout.addLayout(top_layout)
+
+        self.title_label = QLabel("Escape The Castle")
+        title_font = self.font()
+        title_font.setPointSize(64)
+        title_font.setBold(True)
+        self.title_label.setFont(title_font)
+        self.title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.title_label.setStyleSheet("background: transparent;")
+
+        title_container = QVBoxLayout()
+        title_container.addStretch()
+        title_container.addWidget(self.title_label)
+        title_container.addStretch()
+        main_layout.addLayout(title_container)
+
+        self.play_button = QPushButton("Start it")
+        self.play_button.setFixedSize(200, 100)
+        self.play_button.setIcon(QIcon("images/start.jpg"))
+        self.play_button.setIconSize(self.play_button.size())
+        self.play_button.clicked.connect(self.start_game)
+
+        self.settings_button = QPushButton("Settings")
+        self.settings_button.setFixedSize(200, 100)
+        self.settings_button.clicked.connect(self.open_settings)
+        self.settings_button.setIcon(QIcon("images/settings.png"))
+        self.settings_button.setIconSize(self.settings_button.size())
+
+        self.exit_button = QPushButton("Leave it")
+        self.exit_button.setFixedSize(200, 100)
+        self.exit_button.clicked.connect(self.close)
+        self.exit_button.setIcon(QIcon("images/exit.png"))
+        self.exit_button.setIconSize(self.exit_button.size())
+
+        buttons_container = QHBoxLayout()
+        left_buttons_layout = QVBoxLayout()
+        left_buttons_layout.setContentsMargins(50, 0, 0, 0)
+        left_buttons_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
+
+        left_buttons_layout.addWidget(self.play_button)
+        left_buttons_layout.addWidget(self.settings_button)
+        left_buttons_layout.addWidget(self.exit_button)
+
+        buttons_container.addLayout(left_buttons_layout)
+        buttons_container.addStretch()
+        main_layout.addLayout(buttons_container)
+        main_layout.addStretch()
+
+        self.dark_theme = False
+        self.apply_theme()
+
+        self.music_player = QMediaPlayer()
+        self.audio_output = QAudioOutput()
+        self.music_player.setAudioOutput(self.audio_output)
+        self.music_url = QUrl.fromLocalFile("music/background_music.mp3")
+        self.music_player.setSource(self.music_url)
+        self.audio_output.setVolume(0.5)
+        self.music_enabled = True
+        self.sound_effects_enabled = True
+        self.play_background_music()
+
+    def start_game(self):
+        """Запускает игру"""
+        self.music_player.stop()
+        self.hide()
+
+        try:
+            game_process = subprocess.Popen([sys.executable, "game.py"])
+            game_process.wait()
+
+            self.show()
+            if self.music_enabled:
+                self.play_background_music()
+
+        except Exception as e:
+            QMessageBox.critical(self, "Ошибка", f"Не удалось запустить игру:\n{str(e)}")
+            self.show()
+            if self.music_enabled:
+                self.play_background_music()
+
+        except Exception as e:
+            QMessageBox.critical(self, "Ошибка", f"Не удалось запустить игру:\n{str(e)}")
+            self.show()
+            if self.music_enabled:
+                self.play_background_music()
+
+    def open_settings(self):
+        settings_dialog = SettingsDialog(self)
+        settings_dialog.music_checkbox.setChecked(self.music_enabled)
+        settings_dialog.volume_slider.setValue(int(self.audio_output.volume() * 100))
+        settings_dialog.sound_effects_checkbox.setChecked(self.sound_effects_enabled)
+        result = settings_dialog.exec()
+
+        if result == QDialog.DialogCode.Accepted:
+            self.music_enabled = settings_dialog.music_checkbox.isChecked()
+            volume = settings_dialog.volume_slider.value() / 100.0
+            self.audio_output.setVolume(volume)
+            self.sound_effects_enabled = settings_dialog.sound_effects_checkbox.isChecked()
+
+            if self.music_enabled:
+                self.play_background_music()
+            else:
+                self.music_player.stop()
+
+    def resizeEvent(self, event):
+        self.background.setPixmap(self.background_image.scaled(self.size(), Qt.AspectRatioMode.IgnoreAspectRatio,
+                                                               Qt.TransformationMode.SmoothTransformation))
+        self.background.setGeometry(0, 0, self.width(), self.height())
+        super().resizeEvent(event)
+
+    def toggle_theme(self):
+        self.dark_theme = not self.dark_theme
+        self.apply_theme()
+
+    def apply_theme(self):
+        try:
+            if self.dark_theme:
+                self.set_dark_theme()
+                self.theme_button.setIcon(QIcon("images/moon.png"))
+                self.theme_button.setIconSize(self.theme_button.size())
+                self.background.setPixmap(
+                    self.dark_background_image.scaled(self.size(), Qt.AspectRatioMode.IgnoreAspectRatio,
+                                                      Qt.TransformationMode.SmoothTransformation))
+                style = "color: white; font-size: 24px; font-weight: bold; background-color: #464646; border: 2px solid #5a5a5a; border-radius: 10px;"
+                self.play_button.setStyleSheet(style)
+                self.settings_button.setStyleSheet(style)
+                self.exit_button.setStyleSheet(style)
+                self.title_label.setStyleSheet("color: white; background: transparent;")
+            else:
+                self.set_light_theme()
+                self.theme_button.setIcon(QIcon("images/sun.png"))
+                self.theme_button.setIconSize(self.theme_button.size())
+                self.background.setPixmap(
+                    self.background_image.scaled(self.size(), Qt.AspectRatioMode.IgnoreAspectRatio,
+                                                 Qt.TransformationMode.SmoothTransformation))
+                style = "color: black; font-size: 24px; font-weight: bold; background-color: #d3d3d3; border: 2px solid #a0a0a0; border-radius: 10px;"
+                self.play_button.setStyleSheet(style)
+                self.settings_button.setStyleSheet(style)
+                self.exit_button.setStyleSheet(style)
+                self.title_label.setStyleSheet("color: black; background: transparent;")
+        except Exception as e:
+            print(f"Error applying theme: {e}")
+
+    def set_dark_theme(self):
+        palette = QPalette()
+        palette.setColor(QPalette.ColorRole.Window, QColor(53, 53, 53))
+        palette.setColor(QPalette.ColorRole.WindowText, Qt.GlobalColor.white)
+        palette.setColor(QPalette.ColorRole.Base, QColor(25, 25, 25))
+        palette.setColor(QPalette.ColorRole.AlternateBase, QColor(53, 53, 53))
+        palette.setColor(QPalette.ColorRole.ToolTipBase, Qt.GlobalColor.white)
+        palette.setColor(QPalette.ColorRole.ToolTipText, Qt.GlobalColor.white)
+        palette.setColor(QPalette.ColorRole.Text, Qt.GlobalColor.white)
+        palette.setColor(QPalette.ColorRole.Button, QColor(70, 70, 70))
+        palette.setColor(QPalette.ColorRole.ButtonText, Qt.GlobalColor.white)
+        self.setPalette(palette)
+
+    def set_light_theme(self):
+        palette = QPalette()
+        palette.setColor(QPalette.ColorRole.Window, Qt.GlobalColor.lightGray)
+        palette.setColor(QPalette.ColorRole.WindowText, Qt.GlobalColor.black)
+        palette.setColor(QPalette.ColorRole.Base, Qt.GlobalColor.white)
+        palette.setColor(QPalette.ColorRole.AlternateBase, Qt.GlobalColor.lightGray)
+        palette.setColor(QPalette.ColorRole.ToolTipBase, Qt.GlobalColor.black)
+        palette.setColor(QPalette.ColorRole.ToolTipText, Qt.GlobalColor.black)
+        palette.setColor(QPalette.ColorRole.Text, Qt.GlobalColor.black)
+        palette.setColor(QPalette.ColorRole.Button, Qt.GlobalColor.lightGray)
+        palette.setColor(QPalette.ColorRole.ButtonText, Qt.GlobalColor.black)
+        self.setPalette(palette)
+
+    def play_background_music(self):
+        if self.music_enabled:
+            self.music_player.play()
+
+
+if __name__ == '__main__':
+    os.environ['PYTHONIOENCODING'] = 'UTF-8'
+    app = QApplication(sys.argv)
+    window = MainWindow()
+    window.show()
+    sys.exit(app.exec())
