@@ -2,6 +2,8 @@ import arcade
 import os
 import random
 import time
+from config import config  # Импортируем глобальную конфигурацию
+
 
 class Particle:
     def __init__(self, x, y):
@@ -23,6 +25,7 @@ class Particle:
     def draw(self):
         arcade.draw_circle_filled(self.x, self.y, self.size, self.color)
 
+
 class EffectsManager:
     def __init__(self):
         self.particles = []
@@ -36,20 +39,44 @@ class EffectsManager:
         self.last_step_time = 0
         self.step_interval = 0.3
         self.should_play_walk_sound = False
-        self.background_music.play(loop=True, volume=0.3)
+
+        # Храним ссылку на проигрыватель фоновой музыки
+        self.background_music_player = None
+
+        # Запускаем фоновую музыку с учетом настроек
+        self.update_audio_settings()
+
+    def update_audio_settings(self):
+        """Обновляет громкость всех звуков на основе настроек"""
+        if config.music_enabled:
+            # Если музыка еще не играет, запускаем ее
+            if self.background_music_player is None:
+                self.background_music_player = self.background_music.play(
+                    loop=True,
+                    volume=config.music_volume
+                )
+            else:
+                # Обновляем громкость существующего проигрывателя
+                self.background_music.set_volume(config.music_volume, self.background_music_player)
+        else:
+            # Останавливаем музыку
+            if self.background_music_player:
+                self.background_music.stop(self.background_music_player)
+                self.background_music_player = None
 
     def play_key_sound(self):
-        self.key_sound.play(volume=0.5)
+        if config.sound_effects_enabled:
+            self.key_sound.play(volume=config.sound_effects_volume)
 
     def set_walk_sound(self, should_play):
         self.should_play_walk_sound = should_play
 
     def update_walking_sound(self):
-        if not self.should_play_walk_sound:
+        if not self.should_play_walk_sound or not config.sound_effects_enabled:
             return
         current_time = time.time()
         if current_time - self.last_step_time > self.step_interval:
-            self.walk_sound.play(volume=0.1)
+            self.walk_sound.play(volume=config.sound_effects_volume * 0.2)  # 20% от общей громкости эффектов
             self.last_step_time = current_time
 
     def create_jump_effect(self, x, y):
@@ -69,7 +96,9 @@ class EffectsManager:
 
         self.screen_shake_timer = 0.08
         self.screen_shake_intensity = 2
-        self.jump_sound.play(volume=0.2)
+
+        if config.sound_effects_enabled:
+            self.jump_sound.play(volume=config.sound_effects_volume * 0.4)  # 40% от общей громкости эффектов
 
     def create_land_effect(self, x, y):
         for _ in range(12):
@@ -123,4 +152,6 @@ class EffectsManager:
         return shake_x, shake_y
 
     def stop(self):
-        self.background_music.stop()
+        if self.background_music_player:
+            self.background_music.stop(self.background_music_player)
+            self.background_music_player = None

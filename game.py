@@ -2,6 +2,7 @@ import arcade
 from arcade.camera import Camera2D
 from effects import EffectsManager
 from player import PlayerAnimation
+from config import config
 import os
 import time
 
@@ -291,6 +292,7 @@ class Platformer(arcade.Window):
         self.gui_camera = Camera2D()
         self.player_list = arcade.SpriteList()
         self.engine = None
+        self.effects = EffectsManager()
         self.left = self.right = self.up = self.down = self.jump_pressed = False
         self.jump_buffer_timer = 0.0
         self.time_since_ground = 999.0
@@ -298,7 +300,6 @@ class Platformer(arcade.Window):
         self.was_jumping = False
         self.is_facing_right = True
         self.last_direction = 1
-        self.effects = EffectsManager()
         self.player_animation = PlayerAnimation()
         self.current_level = None
         self.levels = []

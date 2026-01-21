@@ -7,61 +7,112 @@ from PyQt6.QtWidgets import (QApplication, QMainWindow, QPushButton, QVBoxLayout
                              QSlider, QMessageBox)
 from PyQt6.QtGui import QIcon, QPalette, QColor, QPixmap
 from PyQt6.QtCore import Qt, QUrl
+from config import config  # Импортируем глобальную конфигурацию
 
 
 class SettingsDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Settings")
-        self.setGeometry(200, 200, 300, 250)
-
-        layout = QVBoxLayout(self)
+        self.setFixedSize(400, 300)
 
         try:
             self.settings_background_image = QPixmap("images/settings.png")
+            if self.settings_background_image.isNull():
+                self.settings_background_image = QPixmap()
         except Exception as e:
             self.settings_background_image = QPixmap()
 
-        self.settings_background = QLabel(self)
-        self.settings_background.setPixmap(
-            self.settings_background_image.scaled(self.size(), Qt.AspectRatioMode.IgnoreAspectRatio,
-                                                  Qt.TransformationMode.SmoothTransformation))
-        self.settings_background.setGeometry(0, 0, self.width(), self.height())
-        self.settings_background.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        # Главный layout
+        main_layout = QVBoxLayout(self)
 
-        self.settings_content = QWidget(self)
-        content_layout = QVBoxLayout(self.settings_content)
-        self.settings_content.setStyleSheet("background: transparent;")
+        # Создаем виджет для контента с прозрачным фоном
+        content_widget = QWidget()
+        content_widget.setStyleSheet("background: transparent;")
 
-        self.music_checkbox = QCheckBox("Background Music", self)
+        content_layout = QVBoxLayout(content_widget)
+
+        # Настройки
+        self.music_checkbox = QCheckBox("Background Music", content_widget)
         content_layout.addWidget(self.music_checkbox)
 
-        self.volume_slider = QSlider(Qt.Orientation.Horizontal, self)
+        content_layout.addWidget(QLabel("Music Volume", content_widget))
+
+        self.volume_slider = QSlider(Qt.Orientation.Horizontal, content_widget)
         self.volume_slider.setRange(0, 100)
-        self.volume_slider.setValue(50)
-        content_layout.addWidget(QLabel("Music Volume", self))
+        self.volume_slider.setValue(int(config.music_volume * 100))
         content_layout.addWidget(self.volume_slider)
 
-        self.sound_effects_checkbox = QCheckBox("Sound Effects", self)
+        content_layout.addWidget(QLabel("Sound Effects Volume", content_widget))
+
+        self.effects_slider = QSlider(Qt.Orientation.Horizontal, content_widget)
+        self.effects_slider.setRange(0, 100)
+        self.effects_slider.setValue(int(config.sound_effects_volume * 100))
+        content_layout.addWidget(self.effects_slider)
+
+        self.sound_effects_checkbox = QCheckBox("Sound Effects", content_widget)
         content_layout.addWidget(self.sound_effects_checkbox)
 
-        self.ok_button = QPushButton("OK", self)
+        # Кнопки
+        buttons_layout = QHBoxLayout()
+        self.ok_button = QPushButton("OK", content_widget)
         self.ok_button.clicked.connect(self.accept)
-        content_layout.addWidget(self.ok_button)
 
-        layout.addWidget(self.settings_background)
-        layout.addWidget(self.settings_content)
-        self.settings_content.raise_()
-        self.settings_background.lower()
+        self.cancel_button = QPushButton("Cancel", content_widget)
+        self.cancel_button.clicked.connect(self.reject)
 
-        self.setLayout(layout)
+        buttons_layout.addWidget(self.ok_button)
+        buttons_layout.addWidget(self.cancel_button)
+        content_layout.addLayout(buttons_layout)
 
-    def resizeEvent(self, event):
-        self.settings_background.setPixmap(
-            self.settings_background_image.scaled(self.size(), Qt.AspectRatioMode.IgnoreAspectRatio,
-                                                  Qt.TransformationMode.SmoothTransformation))
-        self.settings_background.setGeometry(0, 0, self.width(), self.height())
-        super().resizeEvent(event)
+        # Добавляем отступы и растяжку
+        content_layout.addStretch()
+        content_widget.setLayout(content_layout)
+
+        # Добавляем виджет с контентом в главный layout
+        main_layout.addWidget(content_widget)
+
+        # Устанавливаем начальные значения
+        self.music_checkbox.setChecked(config.music_enabled)
+        self.sound_effects_checkbox.setChecked(config.sound_effects_enabled)
+
+        # Устанавливаем фон
+        if not self.settings_background_image.isNull():
+            self.setStyleSheet(f"""
+                QDialog {{
+                    background-image: url(images/settings.png);
+                    background-position: center;
+                    background-repeat: no-repeat;
+                    background-origin: content;
+                }}
+
+                QCheckBox, QLabel, QSlider, QPushButton {{
+                    background: transparent;
+                }}
+            """)
+        else:
+            self.setStyleSheet("""
+                QDialog {
+                    background-color: #2b2b2b;
+                }
+
+                QCheckBox, QLabel {
+                    color: white;
+                    background: transparent;
+                }
+
+                QPushButton {
+                    background-color: #4a4a4a;
+                    color: white;
+                    border: 1px solid #5a5a5a;
+                    border-radius: 5px;
+                    padding: 8px;
+                }
+
+                QPushButton:hover {
+                    background-color: #5a5a5a;
+                }
+            """)
 
 
 class MainWindow(QMainWindow):
@@ -145,7 +196,6 @@ class MainWindow(QMainWindow):
         main_layout.addLayout(buttons_container)
         main_layout.addStretch()
 
-        self.dark_theme = False
         self.apply_theme()
 
         self.music_player = QMediaPlayer()
@@ -153,9 +203,7 @@ class MainWindow(QMainWindow):
         self.music_player.setAudioOutput(self.audio_output)
         self.music_url = QUrl.fromLocalFile("music/background_music.mp3")
         self.music_player.setSource(self.music_url)
-        self.audio_output.setVolume(0.5)
-        self.music_enabled = True
-        self.sound_effects_enabled = True
+        self.audio_output.setVolume(config.music_volume)
         self.play_background_music()
 
     def start_game(self):
@@ -168,38 +216,37 @@ class MainWindow(QMainWindow):
             game_process.wait()
 
             self.show()
-            if self.music_enabled:
-                self.play_background_music()
+            self.play_background_music()
 
         except Exception as e:
             QMessageBox.critical(self, "Ошибка", f"Не удалось запустить игру:\n{str(e)}")
             self.show()
-            if self.music_enabled:
-                self.play_background_music()
-
-        except Exception as e:
-            QMessageBox.critical(self, "Ошибка", f"Не удалось запустить игру:\n{str(e)}")
-            self.show()
-            if self.music_enabled:
-                self.play_background_music()
+            self.play_background_music()
 
     def open_settings(self):
         settings_dialog = SettingsDialog(self)
-        settings_dialog.music_checkbox.setChecked(self.music_enabled)
-        settings_dialog.volume_slider.setValue(int(self.audio_output.volume() * 100))
-        settings_dialog.sound_effects_checkbox.setChecked(self.sound_effects_enabled)
         result = settings_dialog.exec()
 
         if result == QDialog.DialogCode.Accepted:
-            self.music_enabled = settings_dialog.music_checkbox.isChecked()
-            volume = settings_dialog.volume_slider.value() / 100.0
-            self.audio_output.setVolume(volume)
-            self.sound_effects_enabled = settings_dialog.sound_effects_checkbox.isChecked()
+            # Обновляем глобальные настройки
+            config.update(
+                music_enabled=settings_dialog.music_checkbox.isChecked(),
+                sound_effects_enabled=settings_dialog.sound_effects_checkbox.isChecked(),
+                music_volume=settings_dialog.volume_slider.value() / 100.0,
+                sound_effects_volume=settings_dialog.effects_slider.value() / 100.0,
+                dark_theme=config.dark_theme
+            )
 
-            if self.music_enabled:
+            # Обновляем музыку в главном меню
+            self.audio_output.setVolume(config.music_volume)
+
+            if config.music_enabled:
                 self.play_background_music()
             else:
                 self.music_player.stop()
+
+            # Применяем тему
+            self.apply_theme()
 
     def resizeEvent(self, event):
         self.background.setPixmap(self.background_image.scaled(self.size(), Qt.AspectRatioMode.IgnoreAspectRatio,
@@ -208,18 +255,20 @@ class MainWindow(QMainWindow):
         super().resizeEvent(event)
 
     def toggle_theme(self):
-        self.dark_theme = not self.dark_theme
+        config.dark_theme = not config.dark_theme
+        config.save()
         self.apply_theme()
 
     def apply_theme(self):
         try:
-            if self.dark_theme:
+            if config.dark_theme:
                 self.set_dark_theme()
                 self.theme_button.setIcon(QIcon("images/moon.png"))
                 self.theme_button.setIconSize(self.theme_button.size())
-                self.background.setPixmap(
-                    self.dark_background_image.scaled(self.size(), Qt.AspectRatioMode.IgnoreAspectRatio,
-                                                      Qt.TransformationMode.SmoothTransformation))
+                if not self.dark_background_image.isNull():
+                    self.background.setPixmap(
+                        self.dark_background_image.scaled(self.size(), Qt.AspectRatioMode.IgnoreAspectRatio,
+                                                          Qt.TransformationMode.SmoothTransformation))
                 style = "color: white; font-size: 24px; font-weight: bold; background-color: #464646; border: 2px solid #5a5a5a; border-radius: 10px;"
                 self.play_button.setStyleSheet(style)
                 self.settings_button.setStyleSheet(style)
@@ -229,9 +278,10 @@ class MainWindow(QMainWindow):
                 self.set_light_theme()
                 self.theme_button.setIcon(QIcon("images/sun.png"))
                 self.theme_button.setIconSize(self.theme_button.size())
-                self.background.setPixmap(
-                    self.background_image.scaled(self.size(), Qt.AspectRatioMode.IgnoreAspectRatio,
-                                                 Qt.TransformationMode.SmoothTransformation))
+                if not self.background_image.isNull():
+                    self.background.setPixmap(
+                        self.background_image.scaled(self.size(), Qt.AspectRatioMode.IgnoreAspectRatio,
+                                                     Qt.TransformationMode.SmoothTransformation))
                 style = "color: black; font-size: 24px; font-weight: bold; background-color: #d3d3d3; border: 2px solid #a0a0a0; border-radius: 10px;"
                 self.play_button.setStyleSheet(style)
                 self.settings_button.setStyleSheet(style)
@@ -267,7 +317,7 @@ class MainWindow(QMainWindow):
         self.setPalette(palette)
 
     def play_background_music(self):
-        if self.music_enabled:
+        if config.music_enabled:
             self.music_player.play()
 
 

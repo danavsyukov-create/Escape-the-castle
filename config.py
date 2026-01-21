@@ -1,3 +1,4 @@
+# config.py
 import json
 import os
 
@@ -50,4 +51,5 @@ class config:
             self.dark_theme = dark_theme
         self.save()
 
-Settings = (config)
+# Создаем экземпляр класса config
+config = config()
